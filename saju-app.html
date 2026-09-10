@@ -140,7 +140,9 @@
 <script src="saju-ui.js"></script>
 <script>
   // TODO: 실제 상담 신청 링크로 교체하세요.
-  document.getElementById('ctaButton').href = 'https://waitube.com';
+  document.getElementById('ctaButton').href = 'https://open.kakao.com/o/s2ZATWpc';
+  document.getElementById('ctaButton').target = '_blank';
+  document.getElementById('ctaButton').rel = 'noopener';
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
