@@ -1,0 +1,56 @@
+/* ============================================================
+   college-match-styles.css — 대학매칭 결과 화면 전용 보조 스타일
+   (saju-styles.css의 색상 변수/카드 스타일을 그대로 이어받아 사용)
+   ============================================================ */
+
+.warn-banner{
+  background:#fff3e0; border:1px solid var(--seal); border-left:4px solid var(--seal);
+  border-radius:2px; padding:12px 14px; font-size:12px; line-height:1.6; color:var(--ink);
+  margin-bottom:18px;
+}
+.warn-banner b{ color:var(--seal); }
+
+.grade-input-row{ display:flex; gap:10px; align-items:flex-end; }
+.grade-input-row > div{ flex:1; }
+
+.summary-strip{
+  display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;
+}
+.summary-chip{
+  font-size:12px; padding:6px 10px; border-radius:14px; color:#fff; font-weight:700;
+}
+
+.univ-list{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.univ-card{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  padding:12px; border:1px solid var(--wood); border-radius:2px; background:var(--paper);
+}
+.univ-card .left{ display:flex; flex-direction:column; gap:3px; }
+.univ-card .uname{ font-family:'Noto Serif KR',serif; font-weight:700; font-size:15px; }
+.univ-card .udept{ font-size:12px; color:var(--ink-soft); }
+.univ-card .utags{ display:flex; gap:6px; margin-top:2px; flex-wrap:wrap; }
+.tag{ font-size:10px; padding:2px 7px; border-radius:10px; color:#fff; white-space:nowrap; }
+.tag.tier{ background:var(--wood); }
+.tag.role{ background:var(--to); }
+.prob-badge{
+  font-family:'Noto Serif KR',serif; font-weight:700; font-size:13px;
+  padding:6px 12px; border-radius:2px; color:#fff; text-align:center; min-width:52px;
+}
+.prob-상향{ background:#B0402C; }
+.prob-소신{ background:#C97A2E; }
+.prob-적정{ background:#A9822F; }
+.prob-안정{ background:#3F6B44; }
+.prob-하향{ background:#2E4E72; }
+
+.section-title{
+  font-family:'Noto Serif KR',serif; font-weight:700; font-size:14px; margin:18px 0 8px;
+  display:flex; align-items:center; gap:6px;
+}
+.section-title .count{ font-size:11px; color:var(--ink-soft); font-weight:400; }
+
+.empty-note{ font-size:12px; color:var(--ink-soft); padding:10px 0; }
+
+.cta-card{
+  border:2px solid var(--seal);
+  background: linear-gradient(180deg, rgba(162,53,42,0.06), transparent);
+}

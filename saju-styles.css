@@ -1,0 +1,162 @@
+/* ============================================================
+   saju-styles.css — 사주코어 화면 스타일
+   ============================================================ */
+
+  :root{
+    --paper: #E8DEC4;
+    --paper-deep: #DED2AE;
+    --ink: #211E19;
+    --ink-soft: #55503f;
+    --wood: #8a7048;
+    --seal: #A2352A;
+    --seal-dark: #7c2820;
+    --mok: #3F6B44;   /* 목 */
+    --hwa: #B0402C;   /* 화 */
+    --to:  #A9822F;   /* 토 */
+    --geum:#7B7A6E;   /* 금 */
+    --su:  #2E4E72;   /* 수 */
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.15), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans KR',sans-serif;
+    padding-bottom:80px;
+  }
+  .texture{
+    position:fixed; inset:0; pointer-events:none; opacity:.05; z-index:0;
+    background-image: repeating-linear-gradient(90deg, #000 0 1px, transparent 1px 3px);
+  }
+  header{
+    position:relative; z-index:1;
+    padding:36px 20px 22px;
+    text-align:center;
+    border-bottom:1px solid var(--wood);
+  }
+  header .eyebrow{
+    font-size:12px; letter-spacing:.35em; color:var(--seal); font-weight:700;
+  }
+  header h1{
+    font-family:'Noto Serif KR',serif;
+    font-weight:900;
+    font-size:32px;
+    margin:8px 0 4px;
+    letter-spacing:-0.01em;
+  }
+  header p{ margin:0; color:var(--ink-soft); font-size:13px; }
+
+  main{ max-width:640px; margin:0 auto; padding:22px 16px; position:relative; z-index:1;}
+
+  .card{
+    background:var(--paper-deep);
+    border:1px solid var(--wood);
+    border-radius:2px;
+    padding:20px;
+    margin-bottom:22px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 6px 14px rgba(0,0,0,0.06);
+  }
+  .card h2{
+    font-family:'Noto Serif KR',serif;
+    font-size:15px; margin:0 0 14px;
+    display:flex; align-items:center; gap:8px;
+    color:var(--ink);
+  }
+  .card h2::before{
+    content:''; width:6px; height:6px; background:var(--seal); border-radius:50%; display:inline-block;
+  }
+  .cta-card{
+    border:2px solid var(--seal);
+    background: linear-gradient(180deg, rgba(162,53,42,0.06), var(--paper-deep));
+  }
+
+  form label{ display:block; font-size:12px; color:var(--ink-soft); margin:12px 0 5px; font-weight:500;}
+  form input, form select{
+    width:100%; padding:11px 12px; border:1px solid var(--wood); border-radius:2px;
+    background:var(--paper); font-family:'Noto Sans KR',sans-serif; font-size:15px; color:var(--ink);
+  }
+  .row{ display:flex; gap:10px; }
+  .row > div{ flex:1; }
+  .chip-group{ display:flex; gap:8px; margin-top:4px;}
+  .chip{
+    flex:1; text-align:center; padding:10px; border:1px solid var(--wood); border-radius:2px;
+    cursor:pointer; font-size:13px; user-select:none; background:var(--paper); transition:.15s;
+  }
+  .chip.active{ background:var(--seal); color:#fff; border-color:var(--seal-dark); }
+  .unknown-time{ display:flex; align-items:center; gap:6px; margin-top:10px; font-size:12px; color:var(--ink-soft);}
+
+  button.submit{
+    margin-top:20px; width:100%; padding:14px; border:none; border-radius:2px;
+    background:var(--seal); color:#fff; font-size:15px; font-weight:700; letter-spacing:.05em;
+    cursor:pointer; font-family:'Noto Serif KR',serif;
+  }
+  button.submit:active{ background:var(--seal-dark); }
+
+  /* 사주원국 4기둥 */
+  .pillars{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
+    margin-bottom:6px;
+  }
+  .pillar{
+    background:var(--paper); border:1px solid var(--wood); border-radius:2px;
+    text-align:center; padding:12px 4px 14px; position:relative;
+  }
+  .pillar .label{ font-size:10px; color:var(--ink-soft); letter-spacing:.15em; margin-bottom:8px;}
+  .gz-char{
+    font-family:'Noto Serif KR',serif; font-weight:700; font-size:28px; line-height:1.25;
+    display:block;
+  }
+  .gz-han{ font-size:11px; color:var(--ink-soft); margin-top:2px; display:block;}
+  .pillar.day{ border-color:var(--seal); border-width:2px; }
+  .seal-mark{
+    position:absolute; top:-10px; right:-8px;
+    width:26px; height:26px; border-radius:3px;
+    background:var(--seal); color:#fff; font-size:10px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Noto Serif KR',serif; box-shadow:0 2px 4px rgba(0,0,0,.25); transform:rotate(-4deg);
+  }
+  .elem-tag{
+    display:inline-block; margin-top:6px; font-size:10px; padding:2px 6px; border-radius:8px; color:#fff;
+  }
+  .caption{ font-size:11px; color:var(--ink-soft); text-align:center; margin-top:4px;}
+
+  /* 오행분포 */
+  .elem-bar{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin-top:14px; }
+  .elem-bar div{ height:100%; }
+  .elem-legend{ display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:11px; color:var(--ink-soft);}
+  .elem-legend span{ display:inline-flex; align-items:center; gap:4px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  /* 대운 */
+  .daewoon-strip{ display:flex; overflow-x:auto; gap:8px; padding-bottom:6px; -webkit-overflow-scrolling:touch;}
+  .dw-block{
+    min-width:64px; text-align:center; background:var(--paper); border:1px solid var(--wood);
+    border-radius:2px; padding:10px 6px; flex-shrink:0;
+  }
+  .dw-block.current{ background:var(--seal); color:#fff; border-color:var(--seal-dark); }
+  .dw-block .age{ font-size:10px; color:var(--ink-soft); }
+  .dw-block.current .age{ color:#f4e6df;}
+  .dw-block .gz{ font-family:'Noto Serif KR',serif; font-weight:700; font-size:18px; margin:4px 0;}
+
+  /* 세운 상세분석 스트립 (업로드 이미지 스타일 재현) */
+  .sw-strip{ display:flex; overflow-x:auto; gap:0; border:1px solid var(--wood); border-radius:2px; }
+  .sw-cell{ flex:1; min-width:64px; text-align:center; padding:10px 4px; border-right:1px solid var(--wood); background:var(--paper); }
+  .sw-cell:last-child{ border-right:none; }
+  .sw-cell.hero{ background:var(--seal); color:#fff; }
+  .sw-cell .stage-word{ font-family:'Noto Serif KR',serif; font-weight:700; font-size:15px; }
+  .sw-cell.hero .stage-word{ font-size:20px; }
+  .sw-cell .sub{ font-size:10px; color:var(--ink-soft); margin-top:4px; }
+  .sw-cell.hero .sub{ color:#f4e6df; }
+
+  /* 세운 */
+  table.seun{ width:100%; border-collapse:collapse; font-size:12px; }
+  table.seun th{ text-align:left; color:var(--ink-soft); font-weight:500; padding:6px 4px; border-bottom:1px solid var(--wood); position:sticky; top:0; background:var(--paper-deep);}
+  table.seun td{ padding:7px 4px; border-bottom:1px dashed rgba(138,112,72,.35); }
+  .seun-wrap{ max-height:260px; overflow-y:auto; }
+  .seun-gz{ font-family:'Noto Serif KR',serif; font-weight:700; }
+  tr.now td{ background:rgba(162,53,42,.12); font-weight:700; }
+
+  .note{ font-size:11px; color:var(--ink-soft); line-height:1.6; margin-top:10px; }
+  .hidden{ display:none; }

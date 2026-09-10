@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>평생 사주 기반 대학매칭</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="saju-styles.css">
+<link rel="stylesheet" href="college-match-styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#A2352A">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="사주매칭">
+</head>
+<body>
+<div class="texture"></div>
+<header>
+  <div class="eyebrow">평생 큐레이션 플랫폼 · 대학매칭</div>
+  <h1>四柱 대학매칭</h1>
+  <p>사주 오행 기반으로 어울리는 대학을 찾고, 내신등급으로 지원 가능권을 추립니다</p>
+</header>
+
+<main>
+  <div class="warn-banner">
+    ⚠ <b>안내:</b> 이 서비스는 참고용 진로 컨설팅 도구입니다. 대학 매칭은 명리학 이론(용신·희신·약신)을 기반으로 한 참고 자료입니다.<br>
+    <b>수시 내신 커트라인은 대학어디가(adiga.kr) 공시자료를 재가공한 실제 데이터</b>(2023~2026학년도, 192개교)를 사용하며, 최종 70% 컷 기준입니다. <b>정시 데이터는 아직 없습니다.</b>
+    실제 지원 시에는 최신 모집요강과 배치표를 반드시 다시 확인하세요.
+  </div>
+
+  <div class="card">
+    <h2>생년월일시 · 내신등급 입력</h2>
+    <form id="matchForm">
+      <label>이름 (선택)</label>
+      <input type="text" id="name" placeholder="예: 홍길동">
+
+      <div class="row">
+        <div>
+          <label>생년월일 (양력)</label>
+          <input type="date" id="bdate" required min="1900-01-01" max="2035-12-31">
+        </div>
+      </div>
+
+      <label>태어난 시각</label>
+      <input type="time" id="btime">
+      <div class="unknown-time">
+        <input type="checkbox" id="timeUnknown"> <label style="margin:0;" for="timeUnknown">태어난 시각을 모릅니다 (시주 제외하고 계산)</label>
+      </div>
+
+      <label>성별</label>
+      <div class="chip-group" id="genderGroup">
+        <div class="chip active" data-val="M">남</div>
+        <div class="chip" data-val="F">여</div>
+      </div>
+
+      <div class="caption" style="text-align:left; margin-top:10px;">※ 자시(23~01시) 출생자는 정자시(23시30분부터 다음날로 취급) 기준으로 고정 계산됩니다.</div>
+
+      <div class="grade-input-row">
+        <div>
+          <label>내신 등급 (평균, 1.0~9.0)</label>
+          <input type="number" id="grade" min="1" max="9" step="0.1" placeholder="예: 1.8" required>
+        </div>
+      </div>
+
+      <button type="submit" class="submit">대학매칭 결과보기</button>
+    </form>
+  </div>
+
+  <div id="result" class="hidden">
+    <div class="card">
+      <h2>사주 요약</h2>
+      <div id="sajuSummary" class="caption" style="text-align:left; font-size:13px;"></div>
+      <div class="summary-strip" id="sajuChips"></div>
+    </div>
+
+    <div class="card">
+      <h2>수시 추천</h2>
+      <div id="susiSection"></div>
+    </div>
+
+    <div class="card">
+      <h2>정시 추천</h2>
+      <div id="jeongsiSection"></div>
+    </div>
+
+    <div class="card">
+      <h2>참고 사항</h2>
+      <div class="note">
+        · 오행 매핑: 초성 목(ㄱㅋㄲ)·화(ㄴㄷㄹㅌ)·토(ㅇㅎ)·금(ㅅㅈㅊ)·수(ㅁㅂㅍ) 기준, 전국 대학 415개교 DB를 사용했습니다.<br>
+        · 남학생은 여자대학교가 자동으로 제외됩니다.<br>
+        · 확률 표시(상향/소신/적정/안정/하향)는 학생 내신등급과 대학 커트라인(최종 70%컷)의 차이(Δ)를 기준으로 한 참고값입니다.<br>
+        · 수시 데이터 출처: 대학어디가(adiga.kr) 공시자료를 재가공한 자료(원작 김현석·가공 박한민, 2023~2026학년도, 192개교). 정시 데이터는 아직 확보되지 않았습니다.<br>
+        · 배치표는 매년 바뀌므로, 실제 지원 전 최신 자료로 다시 확인해야 합니다.
+      </div>
+    </div>
+    <div class="card cta-card">
+      <h2>더 정확한 결과가 필요하신가요?</h2>
+      <div class="note">
+        이 결과는 명리학 오행과 공개 배치표를 기반으로 한 <b>무료 참고 자료</b>예요.
+        실제 지원 전략은 학생의 세특·비교과·전형별 유불리까지 함께 봐야 정확해지는데,
+        <b>와이튜브 1:1 심화 상담</b>에서는 명리학 기반 진로설계(내아백)와 최신 실제 배치표를 함께 반영해 훨씬 구체적인 지원 전략을 잡아드립니다.
+      </div>
+      <a href="#" id="ctaButton" class="submit" style="display:block; text-align:center; text-decoration:none; margin-top:12px;">와이튜브 심화 상담 신청하기</a>
+    </div>
+  </div>
+</main>
+
+<script src="saju-core.js"></script>
+<script src="universities-data.js"></script>
+<script src="saju-university-map.js"></script>
+<script src="saju-grade-filter.js"></script>
+<script src="real-susi-placement-data.js"></script>
+<script src="college-match-ui.js"></script>
+<script>
+  // TODO: 실제 상담 신청 링크(카카오채널, 신청폼, 전화 등)로 아래 href를 교체하세요.
+  document.getElementById('ctaButton').href = 'https://waitube.com';
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
