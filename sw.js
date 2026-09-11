@@ -7,7 +7,7 @@
    갱신했다면 CACHE_NAME의 버전 숫자를 올려서 캐시를 새로 채우세요.
    ============================================================ */
 
-const CACHE_NAME = 'saju-match-v1';
+const CACHE_NAME = 'saju-match-v2';
 const ASSETS = [
   './index.html',
   './saju-app.html',
