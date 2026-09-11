@@ -25,28 +25,53 @@ function elemChipColor(elem) {
   return { '목': 'var(--mok)', '화': 'var(--hwa)', '토': 'var(--to)', '금': 'var(--geum)', '수': 'var(--su)' }[elem] || '#888';
 }
 
+function historyHTML(history) {
+  if (!history || history.length < 2) return '';
+  const parts = history.slice().reverse().map(h => `${h.year} <b>${h.cutoffGrade}</b>`).join(' → ');
+  return `<div class="udept" style="margin-top:2px;">최근 추이: ${parts}</div>`;
+}
+
+// ① 관(官) 그룹 — 학과/등급 없이 대학 단위로만 보여주는 간단 카드
+function univSimpleCardHTML(u) {
+  return `
+  <div class="univ-card">
+    <div class="left">
+      <div class="uname">${u.name}</div>
+      <div class="udept">${u.region || ''}</div>
+      <div class="utags">
+        <span class="tag tier">${u.tier}</span>
+        <span class="tag role" style="background:${elemChipColor(u.element)}">${u.role} · ${u.element}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
 function univCardHTML(u) {
+  const g5 = (u.cutoffGrade5 !== null && u.cutoffGrade5 !== undefined) ? u.cutoffGrade5 : '-';
   return `
   <div class="univ-card">
     <div class="left">
       <div class="uname">${u.university}</div>
-      <div class="udept">${u.department} · ${u.admissionType} · 컷 ${u.cutoffGrade}등급 (${u.year})</div>
+      <div class="udept">${u.department} · ${u.admissionType} · 컷 ${u.cutoffGrade}등급 (5등급 환산 ${g5}) · ${u.year}</div>
+      ${historyHTML(u.history)}
       <div class="utags">
         <span class="tag tier">${u.tier}</span>
         <span class="tag role" style="background:${elemChipColor(u.element)}">${u.role} · ${u.element}</span>
+        ${u.midCategory ? `<span class="tag midcat">${u.midCategory}</span>` : ''}
+        ${u.recruitCount ? `<span class="tag quota">모집 ${u.recruitCount}명</span>` : ''}
       </div>
     </div>
     <div class="prob-badge prob-${u.probTier}">${u.probTier}</div>
   </div>`;
 }
 
-function renderListOrEmpty(list, containerId, emptyMsg) {
+function renderListOrEmpty(list, containerId, emptyMsg, cardFn) {
   const el = document.getElementById(containerId);
   if (!list.length) {
     el.innerHTML = `<div class="empty-note">${emptyMsg}</div>`;
     return;
   }
-  el.innerHTML = `<div class="univ-list">${list.map(univCardHTML).join('')}</div>`;
+  el.innerHTML = `<div class="univ-list">${list.map(cardFn || univCardHTML).join('')}</div>`;
 }
 
 document.getElementById('matchForm').addEventListener('submit', (e) => {
@@ -67,37 +92,48 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
   // ① + ② 사주/용신 산출
   const saju = SajuCore.computeSaju(y, m, d, hour, minute, !!hasTime, selectedGender, selectedJasiMode);
   const ys = SajuCore.computeYongsin(saju, !!hasTime);
+  const dayElem = SajuCore.STEM_ELEM[saju.day.stem];
+  const gwanElem = Object.keys(SajuCore.CONTROLS).find(k => SajuCore.CONTROLS[k] === dayElem);
 
-  // ③ 오행 기반 대학 매핑 (성별 필터 적용)
-  const mapped = SajuUnivMap.matchUniversities(window.UNIVERSITIES_DATA, ys, { gender: selectedGender });
+  // ③-A 관(官) 그룹 — 일간 기준 관성 오행 대학, 등급 필터 없이 지역티어 순 상위 6개
+  const gwanMatch = SajuUnivMap.matchByRoleList(
+    window.UNIVERSITIES_DATA,
+    [{ element: gwanElem, role: '관성', priority: 1 }],
+    { gender: selectedGender }
+  );
+  const gwanTop6 = gwanMatch.recommended.slice(0, 6);
+
+  // ③-B 용신·희신 그룹 — 내신등급에 맞춰 상향~하향 6개
+  const yongHuiRoles = [{ element: ys.yongsin, role: '용신', priority: 1 }];
+  if (ys.huisin !== ys.yongsin) yongHuiRoles.push({ element: ys.huisin, role: '희신', priority: 2 });
+  const yongHuiMatch = SajuUnivMap.matchByRoleList(window.UNIVERSITIES_DATA, yongHuiRoles, { gender: selectedGender });
 
   // ④ 내신 등급 필터 (실제 수시 배치데이터 사용 — 대학어디가 공시자료 재가공본)
-  const candidates = SajuGradeFilter.filterByGrade(mapped.recommended, window.realSusiPlacementData, gradeVal);
+  const candidates = SajuGradeFilter.filterByGrade(yongHuiMatch.recommended, window.realSusiPlacementData, gradeVal);
 
-  // ⑤ 최종 수시6 + 정시3 선정
-  const final = SajuGradeFilter.pickFinalList(candidates);
+  // ⑤ 용신·희신 그룹 최종 6개 선정 (정시는 데이터 확보 전까지 비움)
+  const final = SajuGradeFilter.pickFinalList(candidates, { jeongsiCount: 0 });
 
   // ---- 렌더링 ----
   document.getElementById('result').classList.remove('hidden');
 
-  const dayElem = SajuCore.STEM_ELEM[saju.day.stem];
   document.getElementById('sajuSummary').textContent =
     `${document.getElementById('name').value.trim() || '학생'} · ${selectedGender === 'M' ? '남' : '여'} · 일간 ${SajuCore.STEMS[saju.day.stem]}(${dayElem}) · 내신 ${gradeVal}등급`;
 
   document.getElementById('sajuChips').innerHTML = `
+    <span class="summary-chip" style="background:${elemChipColor(gwanElem)}">관성 ${gwanElem}</span>
     <span class="summary-chip" style="background:${elemChipColor(ys.yongsin)}">용신 ${ys.yongsin}</span>
     <span class="summary-chip" style="background:${elemChipColor(ys.huisin)}">희신 ${ys.huisin}</span>
     <span class="summary-chip" style="background:${elemChipColor(ys.gisin)}">병신(비선호) ${ys.gisin}</span>
-    <span class="summary-chip" style="background:${elemChipColor(ys.gusin)}">약신 ${ys.gusin}</span>
   `;
 
-  renderListOrEmpty(final.susi, 'susiSection', '조건에 맞는 학과를 찾지 못했습니다. 내신등급이나 오행 조건을 확인해보세요.');
-  document.getElementById('susiSection').innerHTML =
-    `<div class="section-title">수시 추천 <span class="count">(${final.susi.length}/6)</span></div>` + document.getElementById('susiSection').innerHTML;
+  renderListOrEmpty(gwanTop6, 'gwanSection', '조건에 맞는 대학을 찾지 못했습니다.', univSimpleCardHTML);
+  document.getElementById('gwanSection').innerHTML =
+    `<div class="section-title">① 관(官) 추천 <span class="count">(${gwanTop6.length}/6)</span></div>` + document.getElementById('gwanSection').innerHTML;
 
-  renderListOrEmpty(final.jeongsi, 'jeongsiSection', '정시(수능) 배치표 데이터가 아직 없습니다. 데이터가 확보되면 이 자리에 추천이 표시됩니다.');
-  document.getElementById('jeongsiSection').innerHTML =
-    `<div class="section-title">정시 추천 <span class="count">(${final.jeongsi.length}/3)</span></div>` + document.getElementById('jeongsiSection').innerHTML;
+  renderListOrEmpty(final.susi, 'susiSection', '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
+  document.getElementById('susiSection').innerHTML =
+    `<div class="section-title">② 용신·희신 추천 (내신 반영) <span class="count">(${final.susi.length}/6)</span></div>` + document.getElementById('susiSection').innerHTML;
 
   const resultEl = document.getElementById('result');
   if (typeof resultEl.scrollIntoView === 'function') {

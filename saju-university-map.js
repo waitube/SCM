@@ -37,50 +37,46 @@
   const TIER_RANK = Object.fromEntries(TIER_ORDER.map((t, i) => [t, i]));
 
   /**
-   * 용신/희신/병신/약신 오행별로 대학을 분류.
+   * 임의의 오행 역할 목록(예: 관성만, 또는 용신+희신만)으로 대학을 분류하는 범용 함수.
    * @param {Array} universities - universities.json 배열
-   * @param {Object} ys - SajuCore.computeYongsin()의 반환값 (yongsin/huisin/gisin/gusin 포함)
+   * @param {Array} roleList - [{element:'토', role:'관성', priority:1}, ...] 형태. priority 낮을수록 우선.
    * @param {Object} [options]
-   * @param {boolean} [options.fourYearOnly=true] - 4년제 대학만 포함할지 여부
-   * @param {boolean} [options.includeGisin=false] - 병신(기신) 오행 대학을 "비선호" 목록에 포함할지
-   * @returns {{ recommended: Array, avoid: Array, meta: Object }}
+   * @param {boolean} [options.fourYearOnly=true]
+   * @param {string} [options.gisinElement] - 이 오행이면 avoid로 분류 (선택)
+   * @param {'M'|'F'} [options.gender]
+   * @returns {{ recommended: Array, avoid: Array }}
    */
-  function matchUniversities(universities, ys, options) {
-    const opt = Object.assign({ fourYearOnly: true, includeGisin: true }, options || {});
+  function matchByRoleList(universities, roleList, options) {
+    const opt = Object.assign({ fourYearOnly: true, gisinElement: null, gender: null }, options || {});
 
-    const pool = opt.fourYearOnly
+    let pool = opt.fourYearOnly
       ? universities.filter(u => u.type === '4년제 대학')
       : universities.slice();
 
-    // 오행별 role 라벨 부여 (용신 > 희신 > 약신 순 우선순위)
+    if (opt.gender === 'M') {
+      pool = pool.filter(u => !u.womensOnly);
+    }
+
     const roleOfElement = {};
-    roleOfElement[ys.yongsin] = { role: '용신', priority: 1 };
-    if (!(ys.huisin in roleOfElement)) roleOfElement[ys.huisin] = { role: '희신', priority: 2 };
-    if (!(ys.gusin in roleOfElement)) roleOfElement[ys.gusin] = { role: '약신', priority: 3 };
-    // 병신은 추천군이 아니라 별도 "비선호" 목록으로 분리 (roleOfElement에는 넣지 않음)
+    roleList.forEach(r => { if (!(r.element in roleOfElement)) roleOfElement[r.element] = r; });
 
     const recommended = [];
     const avoid = [];
 
     pool.forEach(u => {
-      if (u.element === ys.gisin) {
-        if (opt.includeGisin) {
-          avoid.push(Object.assign({}, u, { role: '병신(비선호)' }));
-        }
+      if (opt.gisinElement && u.element === opt.gisinElement) {
+        avoid.push(Object.assign({}, u, { role: '병신(비선호)' }));
         return;
       }
       const roleInfo = roleOfElement[u.element];
       if (roleInfo) {
         recommended.push(Object.assign({}, u, { role: roleInfo.role, priority: roleInfo.priority }));
       }
-      // 어느 신(神)에도 해당하지 않는 오행(한신)은 결과에 넣지 않음 — 필요하면 이 부분에서 opt로 추가 가능
     });
 
-    // 정렬: 오행 우선순위(용신→희신→약신) → 지역 티어(인서울→...→지방사립) → 가나다순
     const sortFn = (a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
-      const ta = TIER_RANK[a.tier] ?? 999;
-      const tb = TIER_RANK[b.tier] ?? 999;
+      const ta = TIER_RANK[a.tier] ?? 999, tb = TIER_RANK[b.tier] ?? 999;
       if (ta !== tb) return ta - tb;
       return a.name.localeCompare(b.name, 'ko');
     };
@@ -91,12 +87,37 @@
       return a.name.localeCompare(b.name, 'ko');
     });
 
+    return { recommended, avoid };
+  }
+
+  /**
+   * 용신/희신/병신/약신 오행별로 대학을 분류. (matchByRoleList의 래퍼 — 하위호환용)
+   * @param {Array} universities - universities.json 배열
+   * @param {Object} ys - SajuCore.computeYongsin()의 반환값 (yongsin/huisin/gisin/gusin 포함)
+   * @param {Object} [options]
+   * @param {boolean} [options.fourYearOnly=true] - 4년제 대학만 포함할지 여부
+   * @param {boolean} [options.includeGisin=false] - 병신(기신) 오행 대학을 "비선호" 목록에 포함할지
+   * @param {'M'|'F'} [options.gender] - 학생 성별. 'M'이면 여자대학(womensOnly=true)을 결과에서 자동 제외
+   * @returns {{ recommended: Array, avoid: Array, meta: Object }}
+   */
+  function matchUniversities(universities, ys, options) {
+    const opt = Object.assign({ fourYearOnly: true, includeGisin: true, gender: null }, options || {});
+
+    const roleList = [{ element: ys.yongsin, role: '용신', priority: 1 }];
+    if (ys.huisin !== ys.yongsin) roleList.push({ element: ys.huisin, role: '희신', priority: 2 });
+    if (ys.gusin !== ys.yongsin && ys.gusin !== ys.huisin) roleList.push({ element: ys.gusin, role: '약신', priority: 3 });
+
+    const { recommended, avoid } = matchByRoleList(universities, roleList, {
+      fourYearOnly: opt.fourYearOnly,
+      gisinElement: opt.includeGisin ? ys.gisin : null,
+      gender: opt.gender,
+    });
+
     return {
       recommended,
       avoid,
       meta: {
         yongsin: ys.yongsin, huisin: ys.huisin, gisin: ys.gisin, gusin: ys.gusin,
-        totalPoolSize: pool.length,
         recommendedCount: recommended.length,
         avoidCount: avoid.length,
       },
@@ -124,7 +145,7 @@
     return grouped;
   }
 
-  const SajuUnivMap = { matchUniversities, groupByTier, groupByRole, TIER_ORDER };
+  const SajuUnivMap = { matchUniversities, matchByRoleList, groupByTier, groupByRole, TIER_ORDER };
   root.SajuUnivMap = SajuUnivMap;
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = SajuUnivMap;

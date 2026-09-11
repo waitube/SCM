@@ -32,6 +32,8 @@
 .tag{ font-size:10px; padding:2px 7px; border-radius:10px; color:#fff; white-space:nowrap; }
 .tag.tier{ background:var(--wood); }
 .tag.role{ background:var(--to); }
+.tag.midcat{ background:#5b6b7a; }
+.tag.quota{ background:transparent; color:var(--ink-soft); border:1px solid var(--wood); }
 .prob-badge{
   font-family:'Noto Serif KR',serif; font-weight:700; font-size:13px;
   padding:6px 12px; border-radius:2px; color:#fff; text-align:center; min-width:52px;

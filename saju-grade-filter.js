@@ -73,6 +73,11 @@
         track: row.track,
         admissionType: row.admissionType,
         cutoffGrade: row.cutoffGrade,
+        cutoffGrade5: row.cutoffGrade5 !== undefined ? row.cutoffGrade5 : null,
+        cutoffGrade50: row.cutoffGrade50 !== undefined ? row.cutoffGrade50 : null,
+        midCategory: row.midCategory || null,       // 중계열(인문사회/자연과학/공학/의학/예체능/광역/기타)
+        recruitCount: row.recruitCount || 0,         // 모집인원 — 가중치용
+        history: row.history || null,                // 최근 최대 3개년 추이
         year: row.year,
         delta,
         probTier,
@@ -95,10 +100,15 @@
       susiMix: DEFAULT_SUSI_MIX, jeongsiMix: DEFAULT_JEONGSI_MIX,
     }, options || {});
 
-    const susiPool = candidates.filter(c => c.track === '수시')
-      .sort((a, b) => (a.priority - b.priority) || (a.delta - b.delta));
-    const jeongsiPool = candidates.filter(c => c.track === '정시')
-      .sort((a, b) => (a.priority - b.priority) || (a.delta - b.delta));
+    // delta(등급차)가 비슷한 범위(0.1 단위)면 모집인원이 많은(더 안정적인) 전형을 우선 배치
+    const weightedSort = (a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      const bucketA = Math.round(a.delta * 10), bucketB = Math.round(b.delta * 10);
+      if (bucketA !== bucketB) return bucketA - bucketB;
+      return (b.recruitCount || 0) - (a.recruitCount || 0);
+    };
+    const susiPool = candidates.filter(c => c.track === '수시').sort(weightedSort);
+    const jeongsiPool = candidates.filter(c => c.track === '정시').sort(weightedSort);
 
     function pickByMix(pool, mix) {
       const used = new Set();
