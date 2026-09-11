@@ -31,21 +31,6 @@ function historyHTML(history) {
   return `<div class="udept" style="margin-top:2px;">최근 추이: ${parts}</div>`;
 }
 
-// ① 관(官) 그룹 — 학과/등급 없이 대학 단위로만 보여주는 간단 카드
-function univSimpleCardHTML(u) {
-  return `
-  <div class="univ-card">
-    <div class="left">
-      <div class="uname">${u.name}</div>
-      <div class="udept">${u.region || ''}</div>
-      <div class="utags">
-        <span class="tag tier">${u.tier}</span>
-        <span class="tag role" style="background:${elemChipColor(u.element)}">${u.role} · ${u.element}</span>
-      </div>
-    </div>
-  </div>`;
-}
-
 function univCardHTML(u) {
   const g5 = (u.cutoffGrade5 !== null && u.cutoffGrade5 !== undefined) ? u.cutoffGrade5 : '-';
   return `
@@ -74,6 +59,24 @@ function renderListOrEmpty(list, containerId, emptyMsg, cardFn) {
   el.innerHTML = `<div class="univ-list">${list.map(cardFn || univCardHTML).join('')}</div>`;
 }
 
+// 인서울 → 경기·인천권 → 지방거점국립 → 지방국립(비거점) → 지방사립 순으로 묶어서 렌더링
+function tierGroupedHTML(list) {
+  const order = SajuUnivMap.TIER_ORDER;
+  const groups = {};
+  list.forEach(u => { (groups[u.tier] = groups[u.tier] || []).push(u); });
+  return order.filter(t => groups[t] && groups[t].length).map(t => `
+    <div class="tier-group">
+      <div class="tier-heading">${t} <span class="count">${groups[t].length}개</span></div>
+      <div class="univ-list">${groups[t].map(univCardHTML).join('')}</div>
+    </div>`).join('');
+}
+
+function renderTierGrouped(list, containerId, titlePrefix, totalTarget, emptyMsg) {
+  const el = document.getElementById(containerId);
+  const title = `<div class="section-title">${titlePrefix} <span class="count">(${list.length}/${totalTarget})</span></div>`;
+  el.innerHTML = title + (list.length ? tierGroupedHTML(list) : `<div class="empty-note">${emptyMsg}</div>`);
+}
+
 document.getElementById('matchForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const dateVal = document.getElementById('bdate').value;
@@ -95,13 +98,14 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
   const dayElem = SajuCore.STEM_ELEM[saju.day.stem];
   const gwanElem = Object.keys(SajuCore.CONTROLS).find(k => SajuCore.CONTROLS[k] === dayElem);
 
-  // ③-A 관(官) 그룹 — 일간 기준 관성 오행 대학, 등급 필터 없이 지역티어 순 상위 6개
+  // ③-A 관(官) 그룹 — 일간 기준 관성 오행 대학
   const gwanMatch = SajuUnivMap.matchByRoleList(
     window.UNIVERSITIES_DATA,
     [{ element: gwanElem, role: '관성', priority: 1 }],
     { gender: selectedGender }
   );
-  const gwanTop6 = gwanMatch.recommended.slice(0, 6);
+  const gwanCandidates = SajuGradeFilter.filterByGrade(gwanMatch.recommended, window.realSusiPlacementData, gradeVal);
+  const gwanFinal = SajuGradeFilter.pickFinalList(gwanCandidates, { jeongsiCount: 0 });
 
   // ③-B 용신·희신 그룹 — 내신등급에 맞춰 상향~하향 6개
   const yongHuiRoles = [{ element: ys.yongsin, role: '용신', priority: 1 }];
@@ -127,13 +131,11 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
     <span class="summary-chip" style="background:${elemChipColor(ys.gisin)}">병신(비선호) ${ys.gisin}</span>
   `;
 
-  renderListOrEmpty(gwanTop6, 'gwanSection', '조건에 맞는 대학을 찾지 못했습니다.', univSimpleCardHTML);
-  document.getElementById('gwanSection').innerHTML =
-    `<div class="section-title">① 관(官) 추천 <span class="count">(${gwanTop6.length}/6)</span></div>` + document.getElementById('gwanSection').innerHTML;
+  renderTierGrouped(gwanFinal.susi, 'gwanSection', '① 관(官) 추천 (내신 반영)', 6,
+    '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
 
-  renderListOrEmpty(final.susi, 'susiSection', '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
-  document.getElementById('susiSection').innerHTML =
-    `<div class="section-title">② 용신·희신 추천 (내신 반영) <span class="count">(${final.susi.length}/6)</span></div>` + document.getElementById('susiSection').innerHTML;
+  renderTierGrouped(final.susi, 'susiSection', '② 용신·희신 추천 (내신 반영)', 6,
+    '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
 
   const resultEl = document.getElementById('result');
   if (typeof resultEl.scrollIntoView === 'function') {

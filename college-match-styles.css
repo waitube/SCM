@@ -50,6 +50,14 @@
 }
 .section-title .count{ font-size:11px; color:var(--ink-soft); font-weight:400; }
 
+.tier-group{ margin-top:14px; }
+.tier-group:first-child{ margin-top:0; }
+.tier-heading{
+  font-size:12px; font-weight:700; color:var(--seal); margin-bottom:6px;
+  display:flex; align-items:center; gap:6px; border-bottom:1px dashed var(--wood); padding-bottom:4px;
+}
+.tier-heading .count{ font-size:10.5px; color:var(--ink-soft); font-weight:400; }
+
 .empty-note{ font-size:12px; color:var(--ink-soft); padding:10px 0; }
 
 .cta-card{
