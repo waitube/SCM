@@ -131,10 +131,24 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
     <span class="summary-chip" style="background:${elemChipColor(ys.gisin)}">병신(비선호) ${ys.gisin}</span>
   `;
 
-  renderTierGrouped(gwanFinal.susi, 'gwanSection', '① 관(官) 추천 (내신 반영)', 6,
+  // 진로 적성 힌트 — saju-core.js에 이미 구현되어 있던 CAREER_HINT/서술 로직을
+  // 대학매칭 화면에 새로 연결한 부분 (기존에는 별도 사주리포트 화면에만 쓰이고 있었음)
+  const careerField = SajuCore.buildCareerFieldNarrative(saju, ys);
+  const careerEl = document.getElementById('careerFieldSection');
+  if (careerEl) {
+    careerEl.innerHTML = careerField
+      ? `
+        <div class="note" style="text-align:left;">${careerField.text}</div>
+        <div class="utags" style="margin-top:10px;">
+          <span class="tag role" style="background:${elemChipColor(ys.yongsin)}">십신 ${careerField.group5}</span>
+        </div>`
+      : `<div class="empty-note">진로 적성 힌트를 계산하지 못했습니다.</div>`;
+  }
+
+  renderTierGrouped(gwanFinal.susi, 'gwanSection', '② 관(官) 추천 (내신 반영)', 6,
     '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
 
-  renderTierGrouped(final.susi, 'susiSection', '② 용신·희신 추천 (내신 반영)', 6,
+  renderTierGrouped(final.susi, 'susiSection', '③ 용신·희신 추천 (내신 반영)', 6,
     '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
 
   const resultEl = document.getElementById('result');

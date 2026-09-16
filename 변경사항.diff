@@ -1,0 +1,119 @@
+diff --git a/college-match-ui.js b/college-match-ui.js
+index 0bbfc3b..ccfaf9a 100644
+--- a/college-match-ui.js
++++ b/college-match-ui.js
+@@ -131,10 +131,24 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
+     <span class="summary-chip" style="background:${elemChipColor(ys.gisin)}">병신(비선호) ${ys.gisin}</span>
+   `;
+ 
+-  renderTierGrouped(gwanFinal.susi, 'gwanSection', '① 관(官) 추천 (내신 반영)', 6,
++  // 진로 적성 힌트 — saju-core.js에 이미 구현되어 있던 CAREER_HINT/서술 로직을
++  // 대학매칭 화면에 새로 연결한 부분 (기존에는 별도 사주리포트 화면에만 쓰이고 있었음)
++  const careerField = SajuCore.buildCareerFieldNarrative(saju, ys);
++  const careerEl = document.getElementById('careerFieldSection');
++  if (careerEl) {
++    careerEl.innerHTML = careerField
++      ? `
++        <div class="note" style="text-align:left;">${careerField.text}</div>
++        <div class="utags" style="margin-top:10px;">
++          <span class="tag role" style="background:${elemChipColor(ys.yongsin)}">십신 ${careerField.group5}</span>
++        </div>`
++      : `<div class="empty-note">진로 적성 힌트를 계산하지 못했습니다.</div>`;
++  }
++
++  renderTierGrouped(gwanFinal.susi, 'gwanSection', '② 관(官) 추천 (내신 반영)', 6,
+     '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
+ 
+-  renderTierGrouped(final.susi, 'susiSection', '② 용신·희신 추천 (내신 반영)', 6,
++  renderTierGrouped(final.susi, 'susiSection', '③ 용신·희신 추천 (내신 반영)', 6,
+     '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
+ 
+   const resultEl = document.getElementById('result');
+diff --git a/index.html b/index.html
+index bbd634d..9b01bd6 100644
+--- a/index.html
++++ b/index.html
+@@ -75,12 +75,17 @@
+     </div>
+ 
+     <div class="card">
+-      <h2>① 관(官) 추천</h2>
++      <h2>① 진로 적성 힌트</h2>
++      <div id="careerFieldSection"></div>
++    </div>
++
++    <div class="card">
++      <h2>② 관(官) 추천</h2>
+       <div id="gwanSection"></div>
+     </div>
+ 
+     <div class="card">
+-      <h2>② 용신·희신 추천 (내신 반영)</h2>
++      <h2>③ 용신·희신 추천 (내신 반영)</h2>
+       <div id="susiSection"></div>
+     </div>
+ 
+@@ -88,8 +93,9 @@
+       <h2>참고 사항</h2>
+       <div class="note">
+         · 오행 매핑: 초성 목(ㄱㅋㄲ)·화(ㄴㄷㄹㅌ)·토(ㅇㅎ)·금(ㅅㅈㅊ)·수(ㅁㅂㅍ) 기준, 전국 대학 417개교 DB를 사용했습니다.<br>
+-        · ① 관(官) 추천은 일간 기준 관성 오행에 맞는 대학을 지역티어 순으로 보여주며, 내신등급과는 무관합니다.<br>
+-        · ② 용신·희신 추천은 내신등급을 반영해 상향/소신/적정/안정/하향으로 정리한 것입니다(모집인원이 많은 전형을 우선 고려).<br>
++        · ① 진로 적성 힌트는 용신 오행과 일간의 십신 관계를 바탕으로 한 참고용 성향이며, 실제 전공 선택은 학생의 흥미·적성·성적을 함께 고려해야 합니다.<br>
++        · ② 관(官) 추천은 일간 기준 관성 오행에 맞는 대학을 지역티어 순으로 보여주며, 내신등급과는 무관합니다.<br>
++        · ③ 용신·희신 추천은 내신등급을 반영해 상향/소신/적정/안정/하향으로 정리한 것입니다(모집인원이 많은 전형을 우선 고려).<br>
+         · 남학생은 여자대학교가 자동으로 제외됩니다.<br>
+         · 수시 데이터 출처: 대학어디가(adiga.kr) 공시자료를 재가공한 자료(원작 김현석·가공 박한민, 2023~2026학년도, 192개교). 중계열 분류는 모두의진학(박상근) 자료와 대조했습니다. 정시 데이터는 아직 확보되지 않았습니다.<br>
+         · 배치표는 매년 바뀌므로, 실제 지원 전 최신 자료로 다시 확인해야 합니다.
+diff --git a/saju-core.js b/saju-core.js
+index 1e55dd1..acee4c3 100644
+--- a/saju-core.js
++++ b/saju-core.js
+@@ -399,6 +399,37 @@ const CAREER_HINT = {
+   "인성": "교육 관련 분야 (연구·강의·자기계발 지원형)",
+   "비겁": "독립·동업형 (본인 주도로 판을 짜는 유형)",
+ };
++// 십신별 전공계열 힌트 (사용자 정의 이론, CAREER_HINT를 대학매칭 화면용으로 확장)
++// ⚠ 절대적 기준이 아닌 참고용 성향입니다. 실제 전공 선택은 학생의 흥미·성적을 함께 고려해야 합니다.
++const MAJOR_FIELD_HINT = {
++  "식상": "손기술·표현력을 살리는 전공 (공학/기술계열, 예체능계열, 콘텐츠·미디어 관련 전공) — 무언가를 직접 만들고 표현하는 실전형 전공에서 강점이 드러나는 편입니다.",
++  "재성": "돈과 자원의 흐름을 다루는 전공 (경영/경제/무역/회계 계열) — 자원을 굴리고 확장하는 감각이 필요한 전공에서 유리합니다.",
++  "관성": "체계와 신뢰를 쌓는 전공 (행정/법정/사회과학 계열) — 조직의 규칙 안에서 꾸준히 인정받는 구조, 공무원·공기업 준비에도 유리한 전공입니다.",
++  "인성": "배우고 가르치는 전공 (교육/인문/어문 계열, 연구직 지향 전공) — 지식을 쌓고 전달하는 학구적인 환경에서 편안함을 느끼는 편입니다.",
++  "비겁": "자기주도형 전공 (경영학, 디자인, IT/창업 연계 전공) — 남 밑에서 정해진 틀을 따르기보다 스스로 판을 짜는 구조에 잘 맞는 전공입니다.",
++};
++// 오행 상생상극 관계만으로 일간 기준 십신 대분류(GROUP5)를 판정 (음양/정편 구분 없이 오행 단위로 판정할 때 사용)
++function elementRelationGroup(dayElem, targetElem){
++  if(targetElem === dayElem) return "비겁";
++  if(GENERATES[targetElem] === dayElem) return "인성";   // target이 일간을 생함
++  if(GENERATES[dayElem] === targetElem) return "식상";   // 일간이 target을 생함
++  if(CONTROLS[dayElem] === targetElem) return "재성";    // 일간이 target을 극함
++  if(CONTROLS[targetElem] === dayElem) return "관성";    // target이 일간을 극함
++  return null;
++}
++/* 용신 오행을 기준으로 진로·전공 적성 해설문을 생성.
++   대학매칭 화면(college-match-ui.js)에서 사용 — 대학 리스트만 나열하지 않고
++   "왜 이 오행 대학군이 이 학생에게 힘이 되는가"를 사주코어의 기존 서술 로직(CAREER_HINT/
++   buildOverviewNarrative와 동일한 패턴)으로 함께 보여주기 위한 함수. */
++function buildCareerFieldNarrative(saju, ys){
++  const dayElem = STEM_ELEM[saju.day.stem];
++  const group5 = elementRelationGroup(dayElem, ys.yongsin);
++  if(!group5) return null;
++  const careerHint = CAREER_HINT[group5];
++  const majorHint = MAJOR_FIELD_HINT[group5];
++  const text = `일간 ${dayElem} 기준으로 용신인 ${ys.yongsin} 기운은 십신상 '${group5}'에 해당합니다. 진로 성향으로는 ${careerHint} 쪽에 힘이 실리며, 전공 계열로는 ${majorHint}`;
++  return { group5, careerHint, majorHint, text };
++}
+ 
+ function analyzeDaewoonCareer(saju, ys){
+   const dayElem = STEM_ELEM[saju.day.stem];
+@@ -570,7 +601,8 @@ function analyzePillarStrength(saju, hasTime){
+     // 기초 데이터
+     STEMS, STEMS_HAN, BRANCHES, BRANCHES_HAN,
+     STEM_ELEM, BRANCH_ELEM, ELEM_COLOR,
+-    GENERATES, CONTROLS, GROUP5, TEN_GOD_DESC, CAREER_HINT,
++    GENERATES, CONTROLS, GROUP5, TEN_GOD_DESC, CAREER_HINT, MAJOR_FIELD_HINT,
++    elementRelationGroup, buildCareerFieldNarrative,
+     // 간지 유틸
+     gzFromIndex, findGZIndex,
+     // 사주 산출
