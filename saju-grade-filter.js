@@ -37,7 +37,8 @@
     { max: 0,    tier: '안정' },
     { max: 0.3,  tier: '적정' },
     { max: 0.7,  tier: '소신' },
-    { max: Infinity, tier: '상향' },
+    { max: 1.3,  tier: '상향' },
+    { max: Infinity, tier: '극상향' },
   ];
 
   function classifyDelta(studentGrade, cutoffGrade) {
@@ -54,10 +55,10 @@
    * @param {Array} placementData - 실제(또는 샘플) 배치표 배열
    * @param {number} studentGrade - 학생 내신 등급 (예: 1.8)
    * @param {Object} [options]
-   * @param {number} [options.rangeBuffer=1.2] - 이 범위(등급) 밖의 커트라인은 애초에 후보에서 제외 (너무 터무니없는 상향/하향 제거용)
+   * @param {number} [options.rangeBuffer=3.0] - 이 범위(등급) 밖의 커트라인은 애초에 후보에서 제외 (너무 터무니없는 상향/하향 제거용)
    */
   function filterByGrade(recommendedUniversities, placementData, studentGrade, options) {
-    const opt = Object.assign({ rangeBuffer: 1.2 }, options || {});
+    const opt = Object.assign({ rangeBuffer: 1.5 }, options || {});
     const univByName = new Map(recommendedUniversities.map(u => [u.name, u]));
 
     const candidates = [];

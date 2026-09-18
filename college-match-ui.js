@@ -1,9 +1,9 @@
 /* ============================================================
    college-match-ui.js — 대학매칭 화면 폼 입력 → 결과 렌더링
    -------------------------------------------------------------
-   로드 순서 (college-match-app.html 기준):
+   로드 순서 (index.html 기준):
      saju-core.js → universities-data.js → saju-university-map.js
-     → saju-grade-filter.js → sample-placement-data.js → (이 파일)
+     → saju-grade-filter.js → real-susi-placement-data.js → ilju-jobs.js → (이 파일)
    ============================================================ */
 
 let selectedGender = 'M';
@@ -36,11 +36,10 @@ function univCardHTML(u) {
   return `
   <div class="univ-card">
     <div class="left">
-      <div class="uname">${u.university}</div>
+      <div class="uname">${u.university}${u._forced ? ' <span style="font-size:10px;color:var(--seal);">(도전 추천)</span>' : ''}</div>
       <div class="udept">${u.department} · ${u.admissionType} · 컷 ${u.cutoffGrade}등급 (5등급 환산 ${g5}) · ${u.year}</div>
       ${historyHTML(u.history)}
       <div class="utags">
-        <span class="tag tier">${u.tier}</span>
         <span class="tag role" style="background:${elemChipColor(u.element)}">${u.role} · ${u.element}</span>
         ${u.midCategory ? `<span class="tag midcat">${u.midCategory}</span>` : ''}
         ${u.recruitCount ? `<span class="tag quota">모집 ${u.recruitCount}명</span>` : ''}
@@ -50,20 +49,22 @@ function univCardHTML(u) {
   </div>`;
 }
 
-function renderListOrEmpty(list, containerId, emptyMsg, cardFn) {
-  const el = document.getElementById(containerId);
-  if (!list.length) {
-    el.innerHTML = `<div class="empty-note">${emptyMsg}</div>`;
-    return;
-  }
-  el.innerHTML = `<div class="univ-list">${list.map(cardFn || univCardHTML).join('')}</div>`;
-}
-
-// 인서울 → 경기·인천권 → 지방거점국립 → 지방국립(비거점) → 지방사립 순으로 묶어서 렌더링
-function tierGroupedHTML(list) {
-  const order = SajuUnivMap.TIER_ORDER;
+// V2 6단계(인서울권→서울경기권→지방거점국립→지방국립→지방사립→지방대)로 묶어서, 개수 제한 없이 렌더링
+function tierGroupedHTMLv2(list, residenceRegion) {
+  const order = SajuUnivMap.TIER_ORDER_V2;
   const groups = {};
-  list.forEach(u => { (groups[u.tier] = groups[u.tier] || []).push(u); });
+  list.forEach(u => {
+    const t = SajuUnivMap.classifyTierV2(u);
+    (groups[t] = groups[t] || []).push(u);
+  });
+  // 지방거점국립 그룹만 거주지역 근접순으로 재정렬
+  if (groups['지방거점국립']) {
+    groups['지방거점국립'].sort((a, b) => {
+      const ra = SajuUnivMap.geojeomProximityRank(a.university, residenceRegion);
+      const rb = SajuUnivMap.geojeomProximityRank(b.university, residenceRegion);
+      return (ra - rb) || (a.delta - b.delta);
+    });
+  }
   return order.filter(t => groups[t] && groups[t].length).map(t => `
     <div class="tier-group">
       <div class="tier-heading">${t} <span class="count">${groups[t].length}개</span></div>
@@ -71,10 +72,54 @@ function tierGroupedHTML(list) {
     </div>`).join('');
 }
 
-function renderTierGrouped(list, containerId, titlePrefix, totalTarget, emptyMsg) {
+// 같은 대학이 학과·전형·연도별로 여러 번 뜨는 것을 막고, 대학당 가장 근접한(delta 절대값 최소) 1건만 남김
+function dedupeByUniversity(candidates) {
+  const bestByUniv = new Map();
+  candidates.forEach(c => {
+    const cur = bestByUniv.get(c.university);
+    if (!cur || Math.abs(c.delta) < Math.abs(cur.delta)) bestByUniv.set(c.university, c);
+  });
+  return Array.from(bestByUniv.values());
+}
+
+// 인서울권 그룹에 "극상향" 카드가 2개 미만이면, 인서울권 후보 중 컷이 가장 높은(어려운) 곳을 강제로 2개까지 "극상향"으로 채움
+function ensureExtremeReach(candidates) {
+  const inseoul = candidates.filter(c => SajuUnivMap.classifyTierV2(c) === '인서울권');
+  const already = inseoul.filter(c => c.probTier === '극상향');
+  if (already.length >= 2) return candidates;
+
+  const usedKeys = new Set(already.map(c => c.university + c.department + c.admissionType));
+  const need = 2 - already.length;
+  const forcedPool = inseoul
+    .filter(c => c.probTier !== '극상향' && !usedKeys.has(c.university + c.department + c.admissionType))
+    .sort((a, b) => a.cutoffGrade - b.cutoffGrade); // 가장 빡센(어려운) 곳부터
+
+  const forced = forcedPool.slice(0, need).map(c => Object.assign({}, c, { probTier: '극상향', _forced: true }));
+  const forcedKeys = new Set(forced.map(c => c.university + c.department + c.admissionType));
+  const rest = candidates.filter(c => !forcedKeys.has(c.university + c.department + c.admissionType));
+  return rest.concat(forced);
+}
+
+function renderTierGroupedV2(list, containerId, titlePrefix, residenceRegion, emptyMsg) {
   const el = document.getElementById(containerId);
-  const title = `<div class="section-title">${titlePrefix} <span class="count">(${list.length}/${totalTarget})</span></div>`;
-  el.innerHTML = title + (list.length ? tierGroupedHTML(list) : `<div class="empty-note">${emptyMsg}</div>`);
+  const title = `<div class="section-title">${titlePrefix} <span class="count">(총 ${list.length}개)</span></div>`;
+  el.innerHTML = title + (list.length ? tierGroupedHTMLv2(list, residenceRegion) : `<div class="empty-note">${emptyMsg}</div>`);
+}
+
+function renderJobSection(iljuName) {
+  const el = document.getElementById('jobSection');
+  const data = window.ILJU_JOBS && window.ILJU_JOBS[iljuName];
+  if (!data) {
+    el.innerHTML = `<div class="empty-note">일주(${iljuName}) 직업 데이터를 찾지 못했습니다.</div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="caption" style="text-align:left; font-size:13px; margin-bottom:8px;"><b>${iljuName}(日柱)</b> · 핵심: ${data.core || '-'}</div>
+    <div class="utags" style="margin-bottom:10px;">
+      ${data.jobs.slice(0, 14).map(j => `<span class="tag midcat">${j.split(',')[0].split('(')[0].trim()}</span>`).join('')}
+    </div>
+    <div class="note">${data.summary || ''}</div>
+  `;
 }
 
 document.getElementById('matchForm').addEventListener('submit', (e) => {
@@ -83,6 +128,7 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
   if (!dateVal) { alert('생년월일을 입력해주세요.'); return; }
   const gradeVal = parseFloat(document.getElementById('grade').value);
   if (!gradeVal || gradeVal < 1 || gradeVal > 9) { alert('내신 등급을 1.0~9.0 사이로 입력해주세요.'); return; }
+  const residenceRegion = document.getElementById('region').value;
 
   const [y, m, d] = dateVal.split('-').map(Number);
   const hasTime = !document.getElementById('timeUnknown').checked && document.getElementById('btime').value;
@@ -97,32 +143,31 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
   const ys = SajuCore.computeYongsin(saju, !!hasTime);
   const dayElem = SajuCore.STEM_ELEM[saju.day.stem];
   const gwanElem = Object.keys(SajuCore.CONTROLS).find(k => SajuCore.CONTROLS[k] === dayElem);
+  const iljuName = SajuCore.STEMS[saju.day.stem] + SajuCore.BRANCHES[saju.day.branch];
 
-  // ③-A 관(官) 그룹 — 일간 기준 관성 오행 대학
+  // ③-A 관(官) 그룹 — 일간 기준 관성 오행 대학, 내신 반영, 개수 제한 없음
   const gwanMatch = SajuUnivMap.matchByRoleList(
     window.UNIVERSITIES_DATA,
     [{ element: gwanElem, role: '관성', priority: 1 }],
     { gender: selectedGender }
   );
-  const gwanCandidates = SajuGradeFilter.filterByGrade(gwanMatch.recommended, window.realSusiPlacementData, gradeVal);
-  const gwanFinal = SajuGradeFilter.pickFinalList(gwanCandidates, { jeongsiCount: 0 });
+  let gwanCandidates = SajuGradeFilter.filterByGrade(gwanMatch.recommended, window.realSusiPlacementData, gradeVal);
+  gwanCandidates = dedupeByUniversity(gwanCandidates);
+  gwanCandidates = ensureExtremeReach(gwanCandidates);
 
-  // ③-B 용신·희신 그룹 — 내신등급에 맞춰 상향~하향 6개
+  // ③-B 용신·희신 그룹 — 내신등급에 맞춰, 개수 제한 없음
   const yongHuiRoles = [{ element: ys.yongsin, role: '용신', priority: 1 }];
   if (ys.huisin !== ys.yongsin) yongHuiRoles.push({ element: ys.huisin, role: '희신', priority: 2 });
   const yongHuiMatch = SajuUnivMap.matchByRoleList(window.UNIVERSITIES_DATA, yongHuiRoles, { gender: selectedGender });
-
-  // ④ 내신 등급 필터 (실제 수시 배치데이터 사용 — 대학어디가 공시자료 재가공본)
-  const candidates = SajuGradeFilter.filterByGrade(yongHuiMatch.recommended, window.realSusiPlacementData, gradeVal);
-
-  // ⑤ 용신·희신 그룹 최종 6개 선정 (정시는 데이터 확보 전까지 비움)
-  const final = SajuGradeFilter.pickFinalList(candidates, { jeongsiCount: 0 });
+  let yongHuiCandidates = SajuGradeFilter.filterByGrade(yongHuiMatch.recommended, window.realSusiPlacementData, gradeVal);
+  yongHuiCandidates = dedupeByUniversity(yongHuiCandidates);
+  yongHuiCandidates = ensureExtremeReach(yongHuiCandidates);
 
   // ---- 렌더링 ----
   document.getElementById('result').classList.remove('hidden');
 
   document.getElementById('sajuSummary').textContent =
-    `${document.getElementById('name').value.trim() || '학생'} · ${selectedGender === 'M' ? '남' : '여'} · 일간 ${SajuCore.STEMS[saju.day.stem]}(${dayElem}) · 내신 ${gradeVal}등급`;
+    `${document.getElementById('name').value.trim() || '학생'} · ${selectedGender === 'M' ? '남' : '여'} · 거주 ${residenceRegion} · 일간 ${SajuCore.STEMS[saju.day.stem]}(${dayElem}) · 내신 ${gradeVal}등급`;
 
   document.getElementById('sajuChips').innerHTML = `
     <span class="summary-chip" style="background:${elemChipColor(gwanElem)}">관성 ${gwanElem}</span>
@@ -131,24 +176,12 @@ document.getElementById('matchForm').addEventListener('submit', (e) => {
     <span class="summary-chip" style="background:${elemChipColor(ys.gisin)}">병신(비선호) ${ys.gisin}</span>
   `;
 
-  // 진로 적성 힌트 — saju-core.js에 이미 구현되어 있던 CAREER_HINT/서술 로직을
-  // 대학매칭 화면에 새로 연결한 부분 (기존에는 별도 사주리포트 화면에만 쓰이고 있었음)
-  const careerField = SajuCore.buildCareerFieldNarrative(saju, ys);
-  const careerEl = document.getElementById('careerFieldSection');
-  if (careerEl) {
-    careerEl.innerHTML = careerField
-      ? `
-        <div class="note" style="text-align:left;">${careerField.text}</div>
-        <div class="utags" style="margin-top:10px;">
-          <span class="tag role" style="background:${elemChipColor(ys.yongsin)}">십신 ${careerField.group5}</span>
-        </div>`
-      : `<div class="empty-note">진로 적성 힌트를 계산하지 못했습니다.</div>`;
-  }
+  renderJobSection(iljuName);
 
-  renderTierGrouped(gwanFinal.susi, 'gwanSection', '② 관(官) 추천 (내신 반영)', 6,
+  renderTierGroupedV2(gwanCandidates, 'gwanSection', '① 관(官) 추천 (내신 반영)', residenceRegion,
     '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
 
-  renderTierGrouped(final.susi, 'susiSection', '③ 용신·희신 추천 (내신 반영)', 6,
+  renderTierGroupedV2(yongHuiCandidates, 'susiSection', '② 용신·희신 추천 (내신 반영)', residenceRegion,
     '조건에 맞는 학과를 찾지 못했습니다. 내신등급을 확인해보세요.');
 
   const resultEl = document.getElementById('result');

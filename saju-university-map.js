@@ -24,6 +24,67 @@
 
 (function (root) {
 
+  /* ---------- V2 대학 그룹 체계 (대표님 지정 순서) ----------
+     인서울권(명단 지정) → 서울경기권 → 지방거점국립(거주지 근접순) → 지방국립 → 지방사립 → 지방대
+  */
+  const INSEOUL_NAMED = new Set([
+    // SKY
+    '서울대학교', '고려대학교', '연세대학교',
+    // 서성한
+    '서강대학교', '성균관대학교', '한양대학교',
+    // 중경외시
+    '중앙대학교', '경희대학교', '한국외국어대학교', '서울시립대학교',
+    // 건동홍숙
+    '건국대학교', '동국대학교', '홍익대학교', '숙명여자대학교',
+    // 국숭세단
+    '국민대학교', '숭실대학교', '세종대학교', '단국대학교',
+    // 광명상가
+    '광운대학교', '명지대학교', '상명대학교', '가톨릭대학교',
+  ]);
+
+  const GEOJEOM_NATIONAL = ['강원대학교', '경북대학교', '경상국립대학교', '전남대학교', '전북대학교', '충남대학교', '충북대학교', '부산대학교', '제주대학교'];
+
+  // 거주지역 → 거점국립대 근접순 (사용자가 준 예시: 대전→충남·충북·전북 / 천안→충남·충북·강원)
+  const REGION_PROXIMITY = {
+    '서울': ['강원대학교','충북대학교','충남대학교'],
+    '인천': ['강원대학교','충남대학교','충북대학교'],
+    '경기북부': ['강원대학교','충북대학교','충남대학교'],
+    '경기남부': ['충북대학교','강원대학교','충남대학교'],
+    '강원': ['강원대학교','충북대학교','경북대학교'],
+    '대전': ['충남대학교','충북대학교','전북대학교'],
+    '세종': ['충남대학교','충북대학교','전북대학교'],
+    '충남': ['충남대학교','충북대학교','강원대학교'],
+    '충북': ['충북대학교','충남대학교','강원대학교'],
+    '광주': ['전남대학교','전북대학교','경상국립대학교'],
+    '전남': ['전남대학교','전북대학교','경상국립대학교'],
+    '전북': ['전북대학교','전남대학교','충남대학교'],
+    '대구': ['경북대학교','경상국립대학교','부산대학교'],
+    '경북': ['경북대학교','부산대학교','경상국립대학교'],
+    '부산': ['부산대학교','경상국립대학교','경북대학교'],
+    '울산': ['부산대학교','경상국립대학교','경북대학교'],
+    '경남': ['경상국립대학교','부산대학교','경북대학교'],
+    '제주': ['제주대학교','부산대학교','경상국립대학교'],
+  };
+  const TIER_ORDER_V2 = ['인서울권', '서울경기권', '지방거점국립', '지방국립', '지방사립', '지방대'];
+
+  /** universities.json의 기존 tier(V1)를 대표님이 지정한 V2 6단계로 재분류 */
+  function classifyTierV2(u) {
+    if (INSEOUL_NAMED.has(u.name)) return '인서울권';
+    if (u.tier === '인서울' || u.tier === '경기·인천권') return '서울경기권';
+    if (u.tier === '지방거점국립') return '지방거점국립';
+    if (u.tier === '지방국립(비거점)') return '지방국립';
+    if (u.tier === '지방사립') return '지방사립';
+    return '지방대'; // 지방공립, 기타유형(전문대/특성화 등)
+  }
+
+  /** 거주지역 기준으로 거점국립대 근접순 랭크(0=가장 가까움). 목록에 없으면 큰 값 반환. */
+  function geojeomProximityRank(universityName, residenceRegion) {
+    const order = REGION_PROXIMITY[residenceRegion];
+    if (!order) return 99;
+    const idx = order.indexOf(universityName);
+    return idx === -1 ? 99 : idx;
+  }
+
   // 지역 티어 우선순위 (① 인서울 → ② 경기·인천권 → ③ 지방거점국립 → ④ 지방국립(비거점) → ⑤ 지방사립)
   const TIER_ORDER = [
     '인서울',
@@ -145,7 +206,11 @@
     return grouped;
   }
 
-  const SajuUnivMap = { matchUniversities, matchByRoleList, groupByTier, groupByRole, TIER_ORDER };
+  const SajuUnivMap = {
+    matchUniversities, matchByRoleList, groupByTier, groupByRole, TIER_ORDER,
+    // V2
+    classifyTierV2, geojeomProximityRank, TIER_ORDER_V2, INSEOUL_NAMED, GEOJEOM_NATIONAL, REGION_PROXIMITY,
+  };
   root.SajuUnivMap = SajuUnivMap;
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = SajuUnivMap;
