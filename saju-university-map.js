@@ -14,7 +14,7 @@
      <script src="saju-university-map.js"></script>
      <script>
        fetch('universities.json').then(r=>r.json()).then(universities=>{
-         const saju = SajuCore.computeSaju(1974,4,10,23,40,true,'M','split');
+         const saju = SajuCore.computeSaju(1974,4,10,23,40,true,'M');
          const ys   = SajuCore.computeYongsin(saju, true);
          const result = SajuUnivMap.matchUniversities(universities, ys);
          console.log(result);
