@@ -18,6 +18,7 @@
      ① 자시는 정자시로 고정 (23:30부터 다음날 일주, jasiMode 인자는 무시)
      ② 시지는 한국 표준시 30분 보정 (자시 23:30~01:29 … 해시 21:30~23:29)
      ③ 희신 = 용신을 생하는 오행 (whoGenerates(yongsin))
+     ④ 신약 + 관성이 최강 오행이면 비겁(일간 오행)을 용신으로 (통관보다 우선)
      이 파일을 고칠 때는 모든 저장소의 사본을 같이 갱신하세요.
    ============================================================ */
 
@@ -306,9 +307,16 @@ function computeYongsin(saju, hasTime){
     tonggwan = { A, B, mediator, note: `${A}(${counts[A]})과 ${B}(${counts[B]})가 팽팽히 상극하고 있어, ${mediator} 기운이 둘을 중재하는 통관용신 후보가 됩니다.` };
   }
 
-  // ---- 억부용신 산출 (통관 상황이면 통관 오행을 우선 후보로) ----
+  // ---- 억부용신 산출 ----
+  // 대표님 이론(2026.11.07 확정): 신약 사주에서 가장 강한 오행이 관성(일간을 극하는 오행)이면,
+  // 그 관성에 눌려 약해진 일간 오행(비겁)을 용신으로, 그것을 생하는 인성을 희신으로 삼는다.
+  // 이 판단은 통관보다 우선한다. (예: 1974.4.10 23:40 임수 일간, 토 최강 → 용신 수·희신 금)
+  const gwanElem = whoControls(dayElem);
   let yongsin, reason;
-  if(tonggwan && counts[tonggwan.mediator] > 0){
+  if(!isStrong && strongest === gwanElem){
+    yongsin = dayElem;
+    reason = `신약 사주 — 가장 강한 ${strongest}(관성)이 일간 ${dayElem}을 극해 약하게 만들고 있으므로, 눌린 ${dayElem}(비겁)을 용신으로 삼아 직접 힘을 세웁니다.`;
+  } else if(tonggwan && counts[tonggwan.mediator] > 0){
     yongsin = tonggwan.mediator;
     reason = `통관 우선 — ${tonggwan.note}`;
   } else if(isStrong){
