@@ -8,13 +8,17 @@
    사용법 (브라우저):
      <script src="saju-core.js"></script>
      <script>
-       const saju = SajuCore.computeSaju(1974,4,10,23,40,true,'M','split');
+       const saju = SajuCore.computeSaju(1974,4,10,23,40,true,'M');
        const ys   = SajuCore.computeYongsin(saju, true);
        console.log(ys.yongsin, ys.huisin, ys.gisin, ys.gusin);
      </script>
 
-   * 원본 saju-core.html에서 계산 로직만 그대로 옮긴 것으로,
-     산출 공식/숫자는 전혀 변경하지 않았습니다.
+   * 원본 saju-core.html에서 계산 로직을 옮긴 공통 엔진입니다.
+   * 통일본 v2026.11.07 (SCM·gunghapcore 공용) — 아래 3가지가 확정 반영됨
+     ① 자시는 정자시로 고정 (23:30부터 다음날 일주, jasiMode 인자는 무시)
+     ② 시지는 한국 표준시 30분 보정 (자시 23:30~01:29 … 해시 21:30~23:29)
+     ③ 희신 = 용신을 생하는 오행 (whoGenerates(yongsin))
+     이 파일을 고칠 때는 모든 저장소의 사본을 같이 갱신하세요.
    ============================================================ */
 
 /* ===================== 기초 데이터 ===================== */
@@ -109,11 +113,11 @@ function computeSaju(y,m,d,hour,minute,hasTime,gender,jasiMode){
   const utHour = hour + minute/60 - 9; // KST -> UT
   const birthJD = toJD(y,m,d, utHour);
 
-  // 일주 계산용 날짜 (자시 처리방식에 따라 분기)
-  // - split(야자시/조자시 분리, 기본): 일주는 자정(00:00) 기준으로만 바뀜 → 입력된 달력일 그대로 사용
-  // - unified(정자시): 23:30부터 이미 다음날로 취급 → 하루를 당겨서 계산
+  // 일주 계산용 날짜 — 대표님 고유 이론: 정자시로 고정
+  // 23:30부터 이미 다음날로 취급 → 하루를 당겨서 계산 (jasiMode 인자는 호환용으로만 받고 무시)
+  jasiMode = 'unified';
   let dayCalcDate = {y,m,d};
-  if(hasTime && jasiMode==='unified' && (hour===23 && minute>=30)){
+  if(hasTime && (hour===23 && minute>=30)){
     dayCalcDate = addOneDay(y,m,d);
   }
 
@@ -146,7 +150,11 @@ function computeSaju(y,m,d,hour,minute,hasTime,gender,jasiMode){
   // 시주
   let hourStem=null, hourBranch=null;
   if(hasTime){
-    hourBranch = Math.floor(((hour+1)%24)/2);
+    // 한국 표준시(동경 135도)는 실제 태양시보다 약 30분 빠르므로 30분을 보정해 시지를 정합니다.
+    // 자시 23:30~01:29, 축시 01:30~03:29 … 술시 19:30~21:29, 해시 21:30~23:29
+    // (날짜가 23:30에 넘어가는 정자시 기준과도 맞춰짐)
+    const solarMin = ((hour*60 + minute - 30) % 1440 + 1440) % 1440;
+    hourBranch = Math.floor(((solarMin + 60) % 1440) / 120);
     const hbaseArr=[0,2,4,6,8];
     hourStem = (hbaseArr[dayStem%5] + hourBranch)%10;
   }
@@ -323,7 +331,7 @@ function computeYongsin(saju, hasTime){
   }
 
   // ---- 희신/병신/약신: 용신 중심 4신 체계 (희신=용신을 생함, 병신=용신을 극함, 약신=병신을 극함) ----
-  const huisin = GENERATES[yongsin];        // 용신을 생하는 오행 = 희신
+  const huisin = whoGenerates(yongsin);     // 용신을 생하는 오행 = 희신
   const gisin = whoControls(yongsin);       // 용신을 극하는 오행 = 병신
   const gusin = whoControls(gisin);         // 병신을 극하는 오행 = 약신
 
