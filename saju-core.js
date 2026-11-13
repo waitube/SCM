@@ -14,11 +14,14 @@
      </script>
 
    * 원본 saju-core.html에서 계산 로직을 옮긴 공통 엔진입니다.
-   * 통일본 v2026.11.07 (SCM·gunghapcore 공용) — 아래 3가지가 확정 반영됨
+   * 통일본 v2026.11.07b (SCM·gunghapcore·평생앱 공용) — 아래 항목이 확정 반영됨
      ① 자시는 정자시로 고정 (23:30부터 다음날 일주, jasiMode 인자는 무시)
      ② 시지는 한국 표준시 30분 보정 (자시 23:30~01:29 … 해시 21:30~23:29)
      ③ 희신 = 용신을 생하는 오행 (whoGenerates(yongsin))
      ④ 신약 + 관성이 최강 오행이면 비겁(일간 오행)을 용신으로 (통관보다 우선)
+     ⑤ 서머타임·표준시 변경 보정 (1948~51, 1955~60, 1987~88 서머타임 / 1954.3~1961.8 UTC+8:30)
+        → 입력은 "그때 시계가 가리킨 시각". 엔진이 동경135도(UTC+9) 기준 시각으로 바꾼 뒤 계산 (2026.11.07 확정)
+     ⑥ 흐르는 운(대운·세운)의 십신·용신 판정은 지지 기준. 원국은 일간 기준 유지 (2026.11.07 확정)
      이 파일을 고칠 때는 모든 저장소의 사본을 같이 갱신하세요.
    ============================================================ */
 
@@ -104,6 +107,36 @@ function computeJeolTerms(centerYear){
   return terms;
 }
 
+/* ===================== 서머타임·표준시 보정 ===================== */
+// 한국(Asia/Seoul) UTC 오프셋 변경 이력 — IANA 시간대 데이터베이스에서 추출. [변경 시각(UTC), 이후 오프셋(분)]
+const SEOUL_OFFSETS = [
+  ["1948-05-31T15:00Z",600],["1948-09-12T14:00Z",540],["1949-04-02T15:00Z",600],["1949-09-10T14:00Z",540],
+  ["1950-03-31T15:00Z",600],["1950-09-09T14:00Z",540],["1951-05-05T15:00Z",600],["1951-09-08T14:00Z",540],
+  ["1954-03-20T15:00Z",510],["1955-05-04T15:30Z",570],["1955-09-08T14:30Z",510],["1956-05-19T15:30Z",570],
+  ["1956-09-29T14:30Z",510],["1957-05-04T15:30Z",570],["1957-09-21T14:30Z",510],["1958-05-03T15:30Z",570],
+  ["1958-09-20T14:30Z",510],["1959-05-02T15:30Z",570],["1959-09-19T14:30Z",510],["1960-04-30T15:30Z",570],
+  ["1960-09-17T14:30Z",510],["1961-08-09T15:30Z",540],["1987-05-09T17:00Z",600],["1987-10-10T17:00Z",540],
+  ["1988-05-07T17:00Z",600],["1988-10-08T17:00Z",540]
+].map(([t,o])=>[Date.parse(t),o]);
+function seoulOffsetAt(utcMs){
+  let off = 540;
+  for(const [t,o] of SEOUL_OFFSETS){ if(utcMs >= t) off = o; else break; }
+  return off;
+}
+/** 시계 시각(그 시절 한국 시계) → 동경135도(UTC+9) 기준 시각. 서머타임·UTC+8:30 시기를 반영 */
+function normalizeToKST(y,m,d,hour,minute){
+  const wall = Date.UTC(y,m-1,d,hour,minute);
+  let utc = wall - 540*60000;
+  for(let i=0;i<3;i++){ const off=seoulOffsetAt(utc); const next = wall - off*60000; if(next===utc) break; utc = next; }
+  const offsetMin = seoulOffsetAt(utc);
+  const k = new Date(utc + 540*60000);
+  let note = "";
+  if(offsetMin===600) note = "서머타임 시기 — 시계 시각에서 1시간을 빼서 계산";
+  else if(offsetMin===570) note = "서머타임 시기(당시 표준시 UTC+8:30) — 동경135도 기준으로 30분을 더해 계산";
+  else if(offsetMin===510) note = "당시 표준시 UTC+8:30 — 동경135도 기준으로 30분을 더해 계산";
+  return { y:k.getUTCFullYear(), m:k.getUTCMonth()+1, d:k.getUTCDate(), hour:k.getUTCHours(), minute:k.getUTCMinutes(), offsetMin, note };
+}
+
 /* ===================== 사주 계산 ===================== */
 function addOneDay(y,m,d){
   const dt = new Date(Date.UTC(y, m-1, d));
@@ -111,6 +144,14 @@ function addOneDay(y,m,d){
   return { y: dt.getUTCFullYear(), m: dt.getUTCMonth()+1, d: dt.getUTCDate() };
 }
 function computeSaju(y,m,d,hour,minute,hasTime,gender,jasiMode){
+  // 서머타임·옛 표준시 보정: 입력(그때의 시계 시각)을 동경135도(UTC+9) 기준 시각으로 바꾼다
+  // jasiMode === 'kst' 이면 호출하는 쪽이 이미 UTC+9 표준시로 바꿔서 넘긴 것이므로 다시 보정하지 않는다
+  let timeCorrection = { offsetMin: 540, note: "" };
+  if(hasTime && jasiMode !== 'kst'){
+    const k = normalizeToKST(y,m,d,hour,minute);
+    timeCorrection = { offsetMin: k.offsetMin, note: k.note, input: {y,m,d,hour,minute} };
+    y=k.y; m=k.m; d=k.d; hour=k.hour; minute=k.minute;
+  }
   const utHour = hour + minute/60 - 9; // KST -> UT
   const birthJD = toJD(y,m,d, utHour);
 
@@ -179,7 +220,7 @@ function computeSaju(y,m,d,hour,minute,hasTime,gender,jasiMode){
     day:{stem:dayStem,branch:dayBranch},
     hour: hasTime ? {stem:hourStem,branch:hourBranch} : null,
     sajuYear, forward, dwStartAge, dwStartAgeExact, daewoon,
-    birthYear: y, jasiMode
+    birthYear: y, jasiMode, timeCorrection
   };
 }
 
@@ -452,14 +493,16 @@ function analyzeDaewoonCareer(saju, ys){
   const rows = saju.daewoon.map(dw=>{
     const gz = gzFromIndex(dw.idx);
     const stemElem = STEM_ELEM[gz.stem];
-    const god10 = tenGod10(saju.day.stem, stemElem, gz.stem%2===0);
+    // 흐르는 운은 지지 기준 (2026.11.07 확정): 십신·용신 판정 모두 대운 지지의 오행으로
+    const branchElem = BRANCH_ELEM[gz.branch];
+    const god10 = tenGod10(saju.day.stem, branchElem, gz.branch%2===0);
     const group5 = GROUP5[god10];
     const stage = twelveStage(saju.day.stem, gz.branch); // 일간 기준 대운 지지의 12운성
     const tier = STAGE_TIER[stage];
     let alignment = "중립";
-    if(stemElem===ys.yongsin || stemElem===ys.huisin) alignment = "길함(용신·희신 해당)";
-    else if(stemElem===ys.gisin) alignment = "주의(병신 해당)";
-    return { startAge:dw.startAge, gzText:`${STEMS[gz.stem]}${BRANCHES[gz.branch]}`, stemElem, god10, group5, stage, tier, alignment, careerHint: CAREER_HINT[group5] };
+    if(branchElem===ys.yongsin || branchElem===ys.huisin) alignment = "길함(용신·희신 해당)";
+    else if(branchElem===ys.gisin) alignment = "주의(병신 해당)";
+    return { startAge:dw.startAge, gzText:`${STEMS[gz.stem]}${BRANCHES[gz.branch]}`, stemElem, branchElem, god10, group5, stage, tier, alignment, careerHint: CAREER_HINT[group5] };
   });
 
   // 기운이 가장 강한(=강 tier) 시기들 중 십신 비중이 가장 높은 것을 '타고난 큰 길'로 요약
@@ -484,14 +527,16 @@ function analyzeSewoonFlow(saju, ys, startYear, count){
     const sy = ((yr-4)%60+60)%60;
     const stem = sy%10, branch = sy%12;
     const stemElem = STEM_ELEM[stem];
-    const god10 = tenGod10(saju.day.stem, stemElem, stem%2===0);
+    // 흐르는 운은 지지 기준 (2026.11.07 확정)
+    const branchElem = BRANCH_ELEM[branch];
+    const god10 = tenGod10(saju.day.stem, branchElem, branch%2===0);
     const group5 = GROUP5[god10];
     const stage = twelveStage(saju.day.stem, branch);
     const tier = STAGE_TIER[stage];
     let alignment = "중립";
-    if(stemElem===ys.yongsin || stemElem===ys.huisin) alignment = "길함(용신·희신)";
-    else if(stemElem===ys.gisin) alignment = "주의(병신)";
-    rows.push({ yr, age, stem, branch, gzText:`${STEMS[stem]}${BRANCHES[branch]}`, stemElem, god10, group5, stage, tier, alignment });
+    if(branchElem===ys.yongsin || branchElem===ys.huisin) alignment = "길함(용신·희신)";
+    else if(branchElem===ys.gisin) alignment = "주의(병신)";
+    rows.push({ yr, age, stem, branch, gzText:`${STEMS[stem]}${BRANCHES[branch]}`, stemElem, branchElem, god10, group5, stage, tier, alignment });
   }
   return rows;
 }
@@ -621,8 +666,8 @@ function analyzePillarStrength(saju, hasTime){
     elementRelationGroup, buildCareerFieldNarrative,
     // 간지 유틸
     gzFromIndex, findGZIndex,
-    // 사주 산출
-    computeSaju,
+    // 사주 산출 (+ 서머타임·옛 표준시 보정)
+    computeSaju, normalizeToKST, ENGINE_VERSION: 'v2026.11.07b',
     // 용신(억부·조후·통관·병약) 분석
     computeYongsin,
     // 십신 / 12운성
